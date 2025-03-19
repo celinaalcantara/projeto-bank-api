@@ -11,7 +11,7 @@ import java.time.LocalDate;
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/bank")
+@RequestMapping("/api")
 public class BankController {
 
     private final BankService bankService;
@@ -21,16 +21,38 @@ public class BankController {
     }
 
     @PostMapping("/conta")
-    public ResponseEntity<Conta> cadastrarConta(@RequestParam String numeroConta, @RequestParam String agencia,
-                                                @RequestParam String nomeTitular, @RequestParam String cpfTitular,
-                                                @RequestParam String dataAbertura, @RequestParam Double saldoInicial,
-                                                @RequestParam TipoConta tipo) {
+    public ResponseEntity<?> cadastrarConta(@RequestBody ContaRequest contaRequest) {
         try {
-            LocalDate data = LocalDate.parse(dataAbertura);
-            Conta conta = bankService.cadastrarConta(numeroConta, agencia, nomeTitular, cpfTitular, data, saldoInicial, tipo);
+            if (contaRequest.getNomeTitular() == null || contaRequest.getNomeTitular().isEmpty()) {
+                return ResponseEntity.badRequest().body("Nome do titular é obrigatório");
+            }
+
+            if (contaRequest.getCpfTitular() == null || contaRequest.getCpfTitular().isEmpty() || contaRequest.getCpfTitular().length() != 11) {
+                return ResponseEntity.badRequest().body("CPF do titular é obrigatório e deve ter 11 dígitos");
+            }
+
+            LocalDate dataAbertura = LocalDate.parse(contaRequest.getDataAbertura());
+            if (dataAbertura.isAfter(LocalDate.now())) {
+                return ResponseEntity.badRequest().body("Data de abertura não pode ser no futuro");
+            }
+
+            if (contaRequest.getSaldoInicial() < 0) {
+                return ResponseEntity.badRequest().body("Saldo inicial não pode ser negativo");
+            }
+
+            TipoConta tipoConta = contaRequest.getTipoConta();
+            if (tipoConta == null) {
+                return ResponseEntity.badRequest().body("Tipo de conta deve ser válido (CORRENTE, POUPANCA, SALARIO)");
+            }
+
+            Conta conta = bankService.cadastrarConta(contaRequest.getNumeroConta(), contaRequest.getAgencia(),
+                    contaRequest.getNomeTitular(), contaRequest.getCpfTitular(), dataAbertura, contaRequest.getSaldoInicial(),
+                    tipoConta);
             return ResponseEntity.status(HttpStatus.CREATED).body(conta);
         } catch (IllegalArgumentException e) {
-            return ResponseEntity.badRequest().body(null);
+            return ResponseEntity.badRequest().body(e.getMessage());
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body("Erro ao processar a requisição: " + e.getMessage());
         }
     }
 
@@ -49,20 +71,49 @@ public class BankController {
         return buscarConta(null, cpf);
     }
 
-    @PutMapping("/conta/{id}/encerrar")
+    @PutMapping("/conta/encerrar/{id}")
     public ResponseEntity<Conta> encerrarConta(@PathVariable Long id) {
         Conta conta = bankService.encerrarConta(id);
         return conta != null ? ResponseEntity.ok(conta) : ResponseEntity.notFound().build();
     }
 
-    @PutMapping("/conta/{id}/depositar")
-    public ResponseEntity<Conta> realizarDeposito(@PathVariable Long id, @RequestParam Double valor) {
-        return realizarTransacao(id, valor, "deposito");
+    @PutMapping("/conta/depositar")
+    public ResponseEntity<?> realizarDeposito(@RequestBody TransacaoRequest transacaoRequest) {
+        if (transacaoRequest.getValor() <= 0) {
+            return ResponseEntity.badRequest().body("Valor recebido inválido");
+        }
+
+        Conta conta = bankService.realizarDeposito(transacaoRequest.getId(), transacaoRequest.getValor());
+        return conta != null ? ResponseEntity.ok(conta) : ResponseEntity.notFound().build();
     }
 
-    @PutMapping("/conta/{id}/sacar")
-    public ResponseEntity<Conta> realizarSaque(@PathVariable Long id, @RequestParam Double valor) {
-        return realizarTransacao(id, valor, "saque");
+    @PutMapping("/conta/sacar")
+    public ResponseEntity<?> realizarSaque(@RequestBody TransacaoRequest transacaoRequest) {
+        if (transacaoRequest.getValor() <= 0) {
+            return ResponseEntity.badRequest().body("Valor recebido inválido");
+        }
+
+        Conta conta = bankService.realizarSaque(transacaoRequest.getId(), transacaoRequest.getValor());
+        return conta != null ? ResponseEntity.ok(conta) : ResponseEntity.badRequest().body("Saldo insuficiente ou conta não encontrada");
+    }
+
+    @PostMapping("/conta/pix")
+    public ResponseEntity<?> realizarPix(@RequestBody PixRequest pixRequest) {
+        if (pixRequest.getValor() <= 0) {
+            return ResponseEntity.badRequest().body("Valor recebido inválido");
+        }
+
+        Conta contaOrigem = bankService.realizarSaque(pixRequest.getIdContaOrigem(), pixRequest.getValor());
+        if (contaOrigem == null) {
+            return ResponseEntity.badRequest().body("Saldo insuficiente ou conta de origem não encontrada");
+        }
+
+        Conta contaDestino = bankService.realizarDeposito(pixRequest.getIdContaDestino(), pixRequest.getValor());
+        if (contaDestino == null) {
+            return ResponseEntity.badRequest().body("Conta de destino não encontrada");
+        }
+
+        return ResponseEntity.ok(contaOrigem);
     }
 
     private ResponseEntity<Conta> buscarConta(Long id, String cpf) {
@@ -76,14 +127,128 @@ public class BankController {
         return conta != null ? ResponseEntity.ok(conta) : ResponseEntity.notFound().build();
     }
 
-    private ResponseEntity<Conta> realizarTransacao(Long id, Double valor, String tipoTransacao) {
-        if (valor <= 0) {
-            return ResponseEntity.badRequest().body(null);
+    public static class ContaRequest {
+        private String numeroConta;
+        private String agencia;
+        private String nomeTitular;
+        private String cpfTitular;
+        private String dataAbertura;
+        private Double saldoInicial;
+        private String tipo;
+
+        public String getNumeroConta() {
+            return numeroConta;
         }
 
-        Conta conta = tipoTransacao.equals("deposito") ?
-                bankService.realizarDeposito(id, valor) : bankService.realizarSaque(id, valor);
+        public void setNumeroConta(String numeroConta) {
+            this.numeroConta = numeroConta;
+        }
 
-        return conta != null ? ResponseEntity.ok(conta) : ResponseEntity.notFound().build();
+        public String getAgencia() {
+            return agencia;
+        }
+
+        public void setAgencia(String agencia) {
+            this.agencia = agencia;
+        }
+
+        public String getNomeTitular() {
+            return nomeTitular;
+        }
+
+        public void setNomeTitular(String nomeTitular) {
+            this.nomeTitular = nomeTitular;
+        }
+
+        public String getCpfTitular() {
+            return cpfTitular;
+        }
+
+        public void setCpfTitular(String cpfTitular) {
+            this.cpfTitular = cpfTitular;
+        }
+
+        public String getDataAbertura() {
+            return dataAbertura;
+        }
+
+        public void setDataAbertura(String dataAbertura) {
+            this.dataAbertura = dataAbertura;
+        }
+
+        public Double getSaldoInicial() {
+            return saldoInicial;
+        }
+
+        public void setSaldoInicial(Double saldoInicial) {
+            this.saldoInicial = saldoInicial;
+        }
+
+        public String getTipo() {
+            return tipo;
+        }
+
+        public void setTipo(String tipo) {
+            this.tipo = tipo;
+        }
+
+        public TipoConta getTipoConta() {
+            try {
+                return TipoConta.valueOf(tipo.toUpperCase());
+            } catch (IllegalArgumentException e) {
+                return null;
+            }
+        }
+    }
+
+    public static class TransacaoRequest {
+        private Long id;
+        private Double valor;
+
+        public Long getId() {
+            return id;
+        }
+
+        public void setId(Long id) {
+            this.id = id;
+        }
+
+        public Double getValor() {
+            return valor;
+        }
+
+        public void setValor(Double valor) {
+            this.valor = valor;
+        }
+    }
+
+    public static class PixRequest {
+        private Long idContaOrigem;
+        private Long idContaDestino;
+        private Double valor;
+
+        public Long getIdContaOrigem() {
+            return idContaOrigem;
+        }
+
+        public void setIdContaOrigem(Long idContaOrigem) {
+            this.idContaOrigem = idContaOrigem;
+        }
+
+        public Long getIdContaDestino() {
+            return idContaDestino;
+        }
+
+        public void setIdContaDestino(Long idContaDestino) {
+            this.idContaDestino = idContaDestino;
+        }
+
+        public Double getValor() {
+            return valor;
+        }
+
+        public void setValor(Double valor) {
+            this.valor = valor;
+        }
     }
 }

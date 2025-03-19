@@ -68,15 +68,17 @@ public class BankService {
         Conta conta = contas.get(id);
         if (conta != null && valor > 0) {
             conta.setSaldo(conta.getSaldo() + valor);
+            return conta;
         }
-        return conta;
+        return null;
     }
 
     public Conta realizarSaque(Long id, Double valor) {
         Conta conta = contas.get(id);
         if (conta != null && valor > 0 && conta.getSaldo() >= valor) {
             conta.setSaldo(conta.getSaldo() - valor);
+            return conta;
         }
-        return conta;
+        return null;
     }
 }

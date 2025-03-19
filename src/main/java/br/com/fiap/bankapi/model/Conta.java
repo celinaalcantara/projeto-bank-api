@@ -91,6 +91,10 @@ public class Conta {
         this.ativa = ativa;
     }
 
+    public boolean isAtiva() {
+        return ativa;
+    }
+
     public TipoConta getTipo() {
         return tipo;
     }
@@ -98,7 +102,4 @@ public class Conta {
     public void setTipo(TipoConta tipo) {
         this.tipo = tipo;
     }
-
-    
-
 }
