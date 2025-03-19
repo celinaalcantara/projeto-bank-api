@@ -15,27 +15,6 @@ public class BankService {
 
     public Conta cadastrarConta(String numeroConta, String agencia, String nomeTitular, String cpfTitular,
                                 LocalDate dataAbertura, Double saldoInicial, TipoConta tipo) {
-
-        if (nomeTitular == null || nomeTitular.isEmpty()) {
-            throw new IllegalArgumentException("Nome do titular é obrigatório");
-        }
-
-        if (cpfTitular == null || cpfTitular.isEmpty()) {
-            throw new IllegalArgumentException("CPF do titular é obrigatório");
-        }
-
-        if (dataAbertura.isAfter(LocalDate.now())) {
-            throw new IllegalArgumentException("Data de abertura não pode ser no futuro");
-        }
-
-        if (saldoInicial < 0) {
-            throw new IllegalArgumentException("Saldo inicial não pode ser negativo");
-        }
-
-        if (tipo == null) {
-            throw new IllegalArgumentException("Tipo de conta deve ser válido");
-        }
-
         Conta conta = new Conta(contador++, numeroConta, agencia, nomeTitular, cpfTitular, dataAbertura, saldoInicial, true, tipo);
         contas.put(conta.getId(), conta);
         return conta;

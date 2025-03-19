@@ -1,25 +1,21 @@
 package br.com.fiap.bankapi.model;
 
+import java.util.List;
+
 public class ProjetoInfo {
     private String projeto;
-    private String nome;
-    private int rm;
+    private List<Integrante> integrantes;
 
-    public ProjetoInfo(String projeto, String nome, int rm) {
+    public ProjetoInfo(String projeto, List<Integrante> integrantes) {
         this.projeto = projeto;
-        this.nome = nome;
-        this.rm = rm;
+        this.integrantes = integrantes;
     }
 
     public String getProjeto() {
         return projeto;
     }
 
-    public String getNome() {
-        return nome;
-    }
-
-    public int getRm() {
-        return rm;
+    public List<Integrante> getIntegrantes() {
+        return integrantes;
     }
 }

@@ -83,15 +83,11 @@ public class Conta {
         this.saldo = saldo;
     }
 
-    public boolean ativa() {
-        return ativa;
-    }
-
     public void setAtiva(boolean ativa) {
         this.ativa = ativa;
     }
 
-    public boolean isAtiva() {
+    public boolean ativa() {
         return ativa;
     }
 
